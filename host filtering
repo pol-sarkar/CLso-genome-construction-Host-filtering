@@ -1,0 +1,85 @@
+STEP 1- Build TWO host references
+cd insect
+wget -O Bactericera_cockerelli.fa.gz https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/024/516/035/GCA_024516035.1_ASM2451603v1/GCA_024516035.1_ASM2451603v1_genomic.fna.gz
+#unpack
+gunzip Bactericera_cockerelli.fa.gz
+cd plant
+
+wget -O Solanum_tuberosum.fa.gz https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/226/075/GCF_000226075.1_SolTub_3.0/GCF_000226075.1_SolTub_3.0_genomic.fna.gz
+gunzip Solanum_tuberosum.fa.gz
+-----------------------------------------------------------------------
+plant_ref = Solanum_umbelliferum.fasta (Use RefSeq (GCF))
+insect_ref = Bactericera_cockerelli.fasta
+
+STEP 2- Sequential host filtering
+host_filter_array.slurm
+
+#!/bin/bash
+#SBATCH --job-name=host_filter
+#SBATCH --partition=epyc
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=40G
+#SBATCH --time=24:00:00
+#SBATCH --output=logs/host_filter_%A_%a.out
+#SBATCH --error=logs/host_filter_%A_%a.err
+#SBATCH --array=1-19
+
+set -euo pipefail
+
+module load bwa
+module load samtools
+
+BASE=~/shared/labprojects/WGS-Liberibacter-Pol
+READS=$BASE/NGS_trimmed_fastq
+OUT=$BASE/bwa_alignment/host_filtered
+INSECT_REF=$BASE/reference/hosts/insect/Bactericera_cockerelli.fa
+PLANT_REF=$BASE/reference/hosts/plant/Solanum_tuberosum.fa
+
+mkdir -p $OUT logs
+
+# sample list
+SAMPLES=(A_S1 B_S2 C_S3 D_S4 E_S5 F_S6 G_S7 H_S8 I_S9 J_S10 K_S11 L_S12 M_S13 N_S14 O_S15 P_S16 Q_S17 R_S18 S_S19)
+
+SAMPLE=${SAMPLES[$SLURM_ARRAY_TASK_ID-1]}
+
+R1=$READS/${SAMPLE}_R1_trimmed.fastq.gz
+R2=$READS/${SAMPLE}_R2_trimmed.fastq.gz
+
+echo "Processing $SAMPLE"
+
+############################################
+# STEP 1: REMOVE INSECT READS (ALL SAMPLES)
+############################################
+
+bwa mem -t 8 $INSECT_REF $R1 $R2 | \
+samtools view -b -f 4 -o $OUT/${SAMPLE}_no_insect.bam -
+
+samtools fastq $OUT/${SAMPLE}_no_insect.bam \
+-1 $OUT/${SAMPLE}_no_insect_R1.fastq.gz \
+-2 $OUT/${SAMPLE}_no_insect_R2.fastq.gz \
+-s /dev/null -0 /dev/null
+
+############################################
+# STEP 2: REMOVE PLANT READS (ONLY D–K)
+############################################
+
+if [[ "$SAMPLE" == D_S4 || "$SAMPLE" == E_S5 || "$SAMPLE" == F_S6 || "$SAMPLE" == I_S9 || "$SAMPLE" == J_S10 || "$SAMPLE" == K_S11 ]]; then
+
+    bwa mem -t 8 $PLANT_REF \
+    $OUT/${SAMPLE}_no_insect_R1.fastq.gz \
+    $OUT/${SAMPLE}_no_insect_R2.fastq.gz | \
+    samtools view -b -f 4 -o $OUT/${SAMPLE}_clean.bam -
+
+else
+    # insect samples only
+    mv $OUT/${SAMPLE}_no_insect_R1.fastq.gz $OUT/${SAMPLE}_clean_R1.fastq.gz
+    mv $OUT/${SAMPLE}_no_insect_R2.fastq.gz $OUT/${SAMPLE}_clean_R2.fastq.gz
+fi
+
+############################################
+# STEP 3: FLAGSTAT (QC)
+############################################
+
+samtools flagstat $OUT/${SAMPLE}_no_insect.bam > $OUT/${SAMPLE}_no_insect_flagstat.txt || true
+
+
