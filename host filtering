@@ -12,45 +12,15 @@ plant_ref = Solanum_umbelliferum.fasta (Use RefSeq (GCF))
 insect_ref = Bactericera_cockerelli.fasta
 
 STEP 2- Sequential host filtering
-Make ONE combined host reference
-cd ~/shared/labprojects/WGS-Liberibacter-Pol/reference/hosts
-
+    Make ONE combined host reference
+      From cd ~/shared/labprojects/WGS-Liberibacter-Pol/reference/hosts
 cat insect/Bactericera_cockerelli.fa plant/Solanum_tuberosum.fa > host_db.fa
-#indecx
+cat insect/Bactericera_cockerelli.fa plant/Solanum_tuberosum.fa > host_combined.fa
+#index
 bwa index host_db.fa
 
-host_filter_array.slurm
-#!/bin/bash
-#SBATCH --job-name=host_filter
-#SBATCH --array=1-12
-#SBATCH --cpus-per-task=8
-#SBATCH --mem=40G
-#SBATCH --time=12:00:00
-#SBATCH --output=logs/host_filter_%A_%a.out
-#SBATCH --error=logs/host_filter_%A_%a.err
-
-module load bwa
-module load samtools
-
-cd ~/shared/labprojects/WGS-Liberibacter-Pol
-
-HOST_REF=reference/hosts/host_db.fa
-READDIR=NGS_trimmed_fastq
-
-SAMPLES=(D E F I J K D E F I J K)   # edit if needed
-SAMPLE=${SAMPLES[$SLURM_ARRAY_TASK_ID-1]}
-
-R1=${READDIR}/${SAMPLE}_R1_trimmed.fastq.gz
-R2=${READDIR}/${SAMPLE}_R2_trimmed.fastq.gz
-
-OUTDIR=host_filtered_fastq
-mkdir -p $OUTDIR
-
-bwa mem -t 8 $HOST_REF $R1 $R2 | \
-samtools view -b -f 12 -F 256 | \
-samtools fastq -1 ${OUTDIR}/${SAMPLE}_clean_R1.fq.gz \
--2 ${OUTDIR}/${SAMPLE}_clean_R2.fq.gz \
--0 /dev/null -s /dev/null -n
+Run filtering from main directory
+nano host_filter_array.slurm
 
 
 
