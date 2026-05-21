@@ -23,6 +23,79 @@ Run filtering from main directory
 nano host_filter_array.slurm
 
 
+#check how many reads are remaining
+ls -lh A_S1/A_S1_clean_R1.fastq.gz
 
+zcat A_S1/A_S1_clean_R1.fastq.gz | wc -l
+(this divide by 4, as fastq format uses 4lines per read= non-host paired end reads)
+for i in */*_clean_R1.fastq.gz; do lines=$(zcat $i | wc -l); reads=$((lines/4)); echo -e "$(basename $i _clean_R1.fastq.gz)\t$reads"; done | sort -k2 -nr
+---------------------------------------------------------------------------
+To check for Clso mapping on the filtered samples:
+clso_mapping_array.slurm
 
+#!/bin/bash
+#SBATCH --job-name=clso_map
+#SBATCH --partition=epyc
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=40G
+#SBATCH --time=12:00:00
+#SBATCH --array=1-19
+#SBATCH --output=logs/clso_map_%A_%a.out
+#SBATCH --error=logs/clso_map_%A_%a.err
 
+module load bwa
+module load samtools
+
+PROJECT=/rhome/poulamis/shared/labprojects/WGS-Liberibacter-Pol
+
+REF=$PROJECT/reference/CLso_ref/ncbi_dataset/data/GCA_000183665.1/GCA_000183665.1_ASM18366v1_genomic.fna
+
+SAMPLES=(
+A_S1
+B_S2
+C_S3
+D_S4
+E_S5
+F_S6
+G_S7
+H_S8
+I_S9
+J_S10
+K_S11
+L_S12
+M_S13
+N_S14
+O_S15
+P_S16
+Q_S17
+R_S18
+S_S19
+)
+
+SAMPLE=${SAMPLES[$SLURM_ARRAY_TASK_ID-1]}
+
+R1=$PROJECT/host_filtered_fastq/$SAMPLE/${SAMPLE}_clean_R1.fastq.gz
+R2=$PROJECT/host_filtered_fastq/$SAMPLE/${SAMPLE}_clean_R2.fastq.gz
+
+OUTDIR=$PROJECT/clso_check/$SAMPLE
+mkdir -p $OUTDIR
+
+echo "====================================="
+echo "Sample: $SAMPLE"
+echo "====================================="
+
+bwa mem -t 8 $REF $R1 $R2 | \
+samtools sort -@ 8 -o $OUTDIR/${SAMPLE}_CLso.bam
+
+samtools index $OUTDIR/${SAMPLE}_CLso.bam
+
+samtools flagstat $OUTDIR/${SAMPLE}_CLso.bam \
+> $OUTDIR/${SAMPLE}_flagstat.txt
+
+echo "Finished $SAMPLE"
+date
+-------------------------------------------
+sbatch clso_mapping_array.slurm
+
+To collect mapping summaries
+grep "mapped (" clso_check/*/*flagstat.txt
