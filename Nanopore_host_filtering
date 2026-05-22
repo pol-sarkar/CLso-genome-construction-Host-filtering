@@ -2,11 +2,41 @@ module load minimap2
 module load samtools
 
 Step 2 — map Nanopore reads to host
+nano nanopore_host_filter.slurm
+-----------------------------------------------------------------------
+#!/bin/bash
+#SBATCH --job-name=ONT_hostfilter
+#SBATCH --partition=epyc
+#SBATCH --cpus-per-task=16
+#SBATCH --mem=120G
+#SBATCH --time=24:00:00
+#SBATCH --output=logs/ont_filter_%j.out
+#SBATCH --error=logs/ont_filter_%j.err
+
+module load minimap2
+module load samtools
+
+cd ~/shared/labprojects/WGS-Liberibacter-Pol
+
+mkdir -p Nanopore_host_filtered
+
+REF=reference/hosts/host_combined.fa
+
+for f in Nanopore_fastq/*.fastq.gz; do
+    b=$(basename $f _nanopore.fastq.gz)
+
+    minimap2 -t 16 -a $REF $f \
+    | samtools view -b -F 4 - \
+    | samtools fastq - \
+    | gzip > Nanopore_host_filtered/${b}_host_filtered.fastq.gz
+
+done
+-------------------------------------------------------------------------
 
 
 
-#Step 3 — extract NON-host reads
+#Step 4 — Check read counts
+zcat Nanopore_host_filtered/S_S19_nanopore_host_filtered.fastq.gz | wc -l
 
 
-
-#Step 4 — use in Unicycler
+Run hybrid assembly
