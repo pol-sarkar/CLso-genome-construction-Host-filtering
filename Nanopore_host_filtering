@@ -1,9 +1,9 @@
-#Step 1 — index host genome
-minimap2 -d host_combined.mmi host_combined.fa
+module load minimap2
+module load samtools
 
 Step 2 — map Nanopore reads to host
 
-
+mkdir -p Nanopore_host_filtered && for f in Nanopore_fastq/*.fastq.gz; do b=$(basename $f .fastq.gz); minimap2 -t 16 -ax map-ont reference/hosts/host_combined.fa $f | samtools view -b -f 4 | samtools fastq - | gzip > Nanopore_host_filtered/${b}_host_filtered.fastq.gz; done
 
 #Step 3 — extract NON-host reads
 
