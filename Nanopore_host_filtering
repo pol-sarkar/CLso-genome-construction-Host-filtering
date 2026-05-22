@@ -1,0 +1,12 @@
+#Step 1 — index host genome
+minimap2 -d host_combined.mmi host_combined.fa
+
+Step 2 — map Nanopore reads to host
+
+
+
+#Step 3 — extract NON-host reads
+
+
+
+#Step 4 — use in Unicycler
