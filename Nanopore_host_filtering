@@ -125,5 +125,27 @@ echo "Date: $(date)"
 #Step 4 — Check read counts
 zcat Nanopore_host_filtered/S_S19_nanopore_host_filtered.fastq.gz | wc -l
 
+##Check
+for f in Nanopore_host_filtered/[A-G]_S*_host_filtered.fastq.gz; do
+    echo "=================================="
+    echo "$(basename $f)"
+    
+    reads=$(zcat $f | wc -l)
+    reads=$((reads/4))
+    
+    size=$(du -h $f | cut -f1)
+    
+    echo "Reads kept: $reads"
+    echo "File size: $size"
+done
+----------------------------------
+----------------------------------
+##CHECK mapping to CLso
+cd ~/shared/labprojects/WGS-Liberibacter-Pol
 
+for f in Nanopore_host_filtered/*_host_filtered.fastq.gz; do 
+b=$(basename $f _host_filtered.fastq.gz); 
+minimap2 -t 8 -ax map-ont reference/CLso_ref/ncbi_dataset/data/GCA_000183665.1/clso.mmi $f | samtools view -c - | awk -v s=$b '{print s"\t"$1}'; 
+done | sort -k2,2nr
+-----------------------------------------------------------
 Run hybrid assembly
