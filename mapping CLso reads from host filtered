@@ -1,0 +1,11 @@
+nano nanopore_clso_extract_all.slurm
+
+-----------------------------------
+---------------------------------000
+For illumina
+
+bwa mem \
+reference/CLso_ref/ncbi_dataset/data/GCA_000183665.1/GCA_000183665.1_ASM18366v1_genomic.fna \
+host_filtered_fastq/S_S19/S_S19_clean_R1.fastq.gz \
+host_filtered_fastq/S_S19/S_S19_clean_R2.fastq.gz | \
+samtools sort -o S_S19_clso_illumina.bam
