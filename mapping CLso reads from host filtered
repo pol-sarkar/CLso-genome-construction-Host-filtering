@@ -24,8 +24,6 @@ module load samtools
 cd ~/shared/labprojects/WGS-Liberibacter-Pol
 
 REF="reference/CLso_ref/ncbi_dataset/data/GCA_000183665.1/GCA_000183665.1_ASM18366v1_genomic.fna"
-
-
 ###############################################################################
 # BUILD INDEX ONCE
 ###############################################################################
@@ -65,8 +63,8 @@ for FASTQ in Nanopore_host_filtered/*host_filtered.fastq.gz; do
     echo ""
 done
 echo "ALL SAMPLES COMPLETED"
------------------------------------
----------------------------------000
+----------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------
 For illumina
 
 bwa mem \
@@ -74,3 +72,8 @@ reference/CLso_ref/ncbi_dataset/data/GCA_000183665.1/GCA_000183665.1_ASM18366v1_
 host_filtered_fastq/S_S19/S_S19_clean_R1.fastq.gz \
 host_filtered_fastq/S_S19/S_S19_clean_R2.fastq.gz | \
 samtools sort -o S_S19_clso_illumina.bam
+
+-----------------------------------------------------------------------------------------------
+---------------------------------------------------------------
+flye --nano-hq Nanopore_host_filtered/S_S19_host_filtered.fastq.gz -g 1.3m -o flye_CLso_S19 -t 16 --asm-coverage 40
+
