@@ -1,0 +1,30 @@
+STEP 1 — Make a working directory
+mkdir -p reference_guided/S_S19
+cd reference_guided/S_S19
+
+STEP 2 — Link your files
+ln -s ../../host_filtered_fastq/S_S19/S_S19_clean_R1.fastq.gz .
+ln -s ../../host_filtered_fastq/S_S19/S_S19_clean_R2.fastq.gz .
+ln -s ../../clso_nanopore_clean/S_S19_CLso_only.fastq.gz .
+ln -s ../../reference/CLso_ref/ncbi_dataset/data/GCA_000183665.1/GCA_000183665.1_ASM18366v1_genomic.fna reference.fna
+
+STEP 3 — Load tools
+module load bwa minimap2 samtools bcftools
+
+STEP 4 — Index the reference
+bwa index reference.fna
+samtools faidx reference.fna
+
+STEP 5 — Map Illumina reads
+bwa mem -t 16 reference.fna S_S19_clean_R1.fastq.gz S_S19_clean_R2.fastq.gz | samtools sort -@ 8 -o illumina.bam
+
+samtools index illumina.bam
+STEP 6 — Map ONT reads
+minimap2 -t 16 -ax map-ont reference.fna S_S19_CLso_only.fastq.gz | samtools sort -@ 8 -o ont.bam
+
+samtools index ont.bam
+
+STEP 7 — Check coverage
+samtools depth illumina.bam | awk '{sum+=$3} END {print "Illumina coverage =",sum/NR}'
+
+samtools depth ont.bam | awk '{sum+=$3} END {print "ONT coverage =",sum/NR}'
