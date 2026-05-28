@@ -18,3 +18,6 @@ seqkit stats S_S19_CLso_5kb.fastq.gz
 flye --nano-raw S_S19_CLso_5kb.fastq.gz -g 1.3m -o flye_S19_final -t 4
 
 8. seqkit stats flye_S19_final/assembly.fasta
+
+
+sample simply does NOT have enough long-read depth for a complete de novo assembly.
