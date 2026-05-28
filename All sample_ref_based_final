@@ -145,3 +145,7 @@ fi
 rm -f "$BAM_DIR"/*.bam "$BAM_DIR"/*.bai || true
 
 echo "DONE: $SAMPLE"
+======-===========================================================================
+================================================================================
+#RUN annotation from ref_guided folder
+for f in */*_consensus.fasta; do [ -f "$f" ] || continue; sample=$(basename "$f" _consensus.fasta); echo "Annotating $sample"; prokka "$f" --outdir annotation_"$sample" --prefix "$sample"; done
