@@ -54,3 +54,19 @@ samtools depth illumina.bam | awk '{sum+=$3} END {print "Final Illumina coverage
 
 STEP 13- Annotate
 prokka --outdir annotation_S_S19 --prefix S_S19 S_S19_consensus.fasta
+
+quast.py annotation_S_S19/S_S19.fna -o quast_prokka
+
+STEP 14
+Circularization check (IMPORTANT for Liberibacter)
+minimap2 S_S19_consensus.fasta S_S19_consensus.fasta
+
+STEP 1 — Fix naming + organize outputs (DO THIS FIRST)
+mkdir -p results/S_S19/{bam,vcf,consensus,quast,annotation}
+##move files
+mv illumina.bam illumina.bam.bai results/S_S19/bam/
+mv ont.bam ont.bam.bai results/S_S19/bam/
+mv variants.vcf.gz* results/S_S19/vcf/
+mv S_S19_consensus.fasta results/S_S19/consensus/
+mv quast_prokka results/S_S19/quast/
+mv annotation_S_S19 results/S_S19/annotation/
