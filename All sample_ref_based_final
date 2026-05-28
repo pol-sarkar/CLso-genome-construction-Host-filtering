@@ -3,7 +3,7 @@
 ##Create CLso-enriched ONT reads for all samples.
 nano clso_hpc_safe_v2.slurm
 
-
+dos2unix clso_hpc_safe_v2.slurm
 
 #!/bin/bash
 
