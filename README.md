@@ -38,7 +38,7 @@ and is MUCH more realistic than forcing Flye.
 
 Important conclusion
 
-You do NOT have enough ONT depth for:
+NOT have enough ONT depth for:
 
 single-contig de novo assembly
 circular chromosome reconstruction
@@ -46,3 +46,12 @@ circular chromosome reconstruction
 But you DO have enough for:
 
 reference-guided complete genome reconstruction.
+
+Flye de novo alone → failed (fragmented, contamination, low coverage)
+Host filtering alone → insufficient enrichment
+
+Final successful strategy:
+
+reference-guided read enrichment + consensus reconstruction
+
+To overcome low pathogen abundance and host contamination, we implemented a combined reference-guided enrichment and hybrid sequencing strategy, using long-read nanopore and short-read Illumina data to reconstruct high-quality CLso genomes. A final consensus genome (~1.27 Mb) was generated through reference-based read mapping and variant-aware consensus calling, followed by structural and functional annotation.
