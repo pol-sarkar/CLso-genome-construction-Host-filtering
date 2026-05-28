@@ -1,82 +1,133 @@
 
 
 ##Create CLso-enriched ONT reads for all samples.
-nano build_clso_ont_reads.slurm
+nano clso_hpc_safe_v2.slurm
+
+
 
 #!/bin/bash
-#SBATCH --job-name=CLso_ONT_extract
-#SBATCH --output=clso_ont_%j.out
-#SBATCH --error=clso_ont_%j.err
+
+
+
+#SBATCH --job-name=CLso_v2
+
 #SBATCH --partition=epyc
+
 #SBATCH --cpus-per-task=16
+
 #SBATCH --mem=64G
-#SBATCH --time=24:00:00
+
+#SBATCH --time=3-00:00:00
+
+#SBATCH --array=0-16
+
+#SBATCH --output=logs/%A_%a.out
+
+#SBATCH --error=logs/%A_%a.err
+
+
 
 set -euo pipefail
 
+
+
+unset PS1 || true
+
+source /etc/profile.d/modules.sh 2>/dev/null || true
+
+
+
 module purge
-module load minimap2 samtools seqkit
+
+
+
+module load bwa/0.7.19
+
+module load minimap2/2.30
+
+module load samtools/1.22.1
+
+module load bcftools/1.22
+
+module load seqkit/2.4.0
+
+
 
 BASE="/bigdata/maucklab/shared/labprojects/WGS-Liberibacter-Pol"
 
+OUT="$BASE/reference_guided"
+
+ONT="$BASE/clso_nanopore_clean"
+
 REF="$BASE/reference/CLso_ref/ncbi_dataset/data/GCA_000183665.1/GCA_000183665.1_ASM18366v1_genomic.fna"
 
-ONT_HOST="$BASE/Nanopore_host_filtered"
 
-OUTDIR="$BASE/clso_nanopore_clean"
 
-mkdir -p "$OUTDIR"
+mkdir -p "$OUT/logs"
 
-##########################################################
-# LOOP
-##########################################################
 
-for fq in $ONT_HOST/*host_filtered.fastq.gz; do
 
-    SAMPLE=$(basename "$fq" _host_filtered.fastq.gz)
+SAMPLE=$(sed -n "$((SLURM_ARRAY_TASK_ID+1))p" samples.txt)
 
-    echo "=================================="
-    echo "Processing $SAMPLE"
-    echo "=================================="
 
-    OUT="$OUTDIR/${SAMPLE}_CLso_only.fastq.gz"
 
-    # skip existing
-    if [[ -f "$OUT" ]]; then
-        echo "Skipping existing $SAMPLE"
-        continue
-    fi
+WORKDIR="$OUT/$SAMPLE"
 
-    ######################################################
-    # MAP TO CLSO
-    ######################################################
+mkdir -p "$WORKDIR"
 
-    minimap2 -t 16 -ax map-ont "$REF" "$fq" | \
-    samtools view -b -F 4 - > "${OUTDIR}/${SAMPLE}.bam"
+cd "$WORKDIR"
 
-    ######################################################
-    # EXTRACT MAPPED READS
-    ######################################################
+R1="$BASE/host_filtered_fastq/$SAMPLE/${SAMPLE}_clean_R1.fastq.gz"
+R2="$BASE/host_filtered_fastq/$SAMPLE/${SAMPLE}_clean_R2.fastq.gz"
+ONT_READS="$ONT/${SAMPLE}_CLso_only.fastq.gz"
 
-    samtools fastq "${OUTDIR}/${SAMPLE}.bam" | gzip > "$OUT"
 
-    ######################################################
-    # STATS
-    ######################################################
+[[ -f "$R1" && -f "$R2" && -f "$ONT_READS" ]] || exit 0
 
-    seqkit stats "$OUT"
 
-    rm "${OUTDIR}/${SAMPLE}.bam"
+if [[ ! -f reference.fna ]]; then
+    ln -s "$REF" reference.fna
+    bwa index reference.fna
+    samtools faidx reference.fna
+fi
 
-done
 
-echo "DONE"
 
-----------------------------------------------------------------------
-----------------------------------------------------------------------
-module load seqkit
-seqkit stats *_CLso_only.fastq.gz
-----------------------------------------------------------------
------------------------------------------------------------------
-SKIP Low reads samples
-nano run_clso_pipeline.slurm
+bwa mem -t 16 reference.fna "$R1" "$R2" | samtools sort -@ 8 -o illumina.bam
+
+samtools index illumina.bam
+
+
+minimap2 -t 16 -ax map-ont reference.fna "$ONT_READS" | samtools sort -@ 8 -o ont.bam
+
+samtools index ont.bam
+
+
+
+samtools merge combined.bam illumina.bam ont.bam
+
+samtools index combined.bam
+
+
+
+bcftools mpileup -Ou -f reference.fna combined.bam | \
+bcftools call -mv -Oz -o variants.vcf.gz
+
+bcftools index variants.vcf.gz
+
+bcftools consensus -f reference.fna variants.vcf.gz > ${SAMPLE}_consensus.fasta
+
+seqkit stats ${SAMPLE}_consensus.fasta > stats.txt
+quast.py ${SAMPLE}_consensus.fasta -o quast_${SAMPLE} --silent || true
+
+if module avail prokka >/dev/null 2>&1; then
+    module load prokka/1.14.5
+    prokka ${SAMPLE}_consensus.fasta \
+        --outdir annotation_${SAMPLE} \
+        --prefix ${SAMPLE} \
+        --genus Liberibacter \
+        --kingdom Bacteria \
+        --cpus 8 || true
+fi
+
+rm -f *.bam *.bai
