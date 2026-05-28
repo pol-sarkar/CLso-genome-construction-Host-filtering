@@ -1,1 +1,78 @@
+
+
+##Create CLso-enriched ONT reads for all samples.
+nano build_clso_ont_reads.slurm
+
+#!/bin/bash
+#SBATCH --job-name=CLso_ONT_extract
+#SBATCH --output=clso_ont_%j.out
+#SBATCH --error=clso_ont_%j.err
+#SBATCH --partition=epyc
+#SBATCH --cpus-per-task=16
+#SBATCH --mem=64G
+#SBATCH --time=24:00:00
+
+set -euo pipefail
+
+module purge
+module load minimap2 samtools seqkit
+
+BASE="/bigdata/maucklab/shared/labprojects/WGS-Liberibacter-Pol"
+
+REF="$BASE/reference/CLso_ref/ncbi_dataset/data/GCA_000183665.1/GCA_000183665.1_ASM18366v1_genomic.fna"
+
+ONT_HOST="$BASE/Nanopore_host_filtered"
+
+OUTDIR="$BASE/clso_nanopore_clean"
+
+mkdir -p "$OUTDIR"
+
+##########################################################
+# LOOP
+##########################################################
+
+for fq in $ONT_HOST/*host_filtered.fastq.gz; do
+
+    SAMPLE=$(basename "$fq" _host_filtered.fastq.gz)
+
+    echo "=================================="
+    echo "Processing $SAMPLE"
+    echo "=================================="
+
+    OUT="$OUTDIR/${SAMPLE}_CLso_only.fastq.gz"
+
+    # skip existing
+    if [[ -f "$OUT" ]]; then
+        echo "Skipping existing $SAMPLE"
+        continue
+    fi
+
+    ######################################################
+    # MAP TO CLSO
+    ######################################################
+
+    minimap2 -t 16 -ax map-ont "$REF" "$fq" | \
+    samtools view -b -F 4 - > "${OUTDIR}/${SAMPLE}.bam"
+
+    ######################################################
+    # EXTRACT MAPPED READS
+    ######################################################
+
+    samtools fastq "${OUTDIR}/${SAMPLE}.bam" | gzip > "$OUT"
+
+    ######################################################
+    # STATS
+    ######################################################
+
+    seqkit stats "$OUT"
+
+    rm "${OUTDIR}/${SAMPLE}.bam"
+
+done
+
+echo "DONE"
+
+----------------------------------------------------------------------
+----------------------------------------------------------------------
+
 nano run_clso_pipeline.slurm
