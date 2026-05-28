@@ -28,3 +28,20 @@ STEP 7 — Check coverage
 samtools depth illumina.bam | awk '{sum+=$3} END {print "Illumina coverage =",sum/NR}'
 
 samtools depth ont.bam | awk '{sum+=$3} END {print "ONT coverage =",sum/NR}'
+
+###generate consensus genome
+STEP 8 — Merge BAMs
+samtools merge combined.bam illumina.bam ont.bam
+
+samtools index combined.bam
+
+STEP 9 — Call variants
+bcftools mpileup -Ou -f reference.fna combined.bam | bcftools call -mv -Oz -o variants.vcf.gz
+#index them
+bcftools index variants.vcf.gz
+
+STEP 10 — Build consensus genome
+cat reference.fna | bcftools consensus variants.vcf.gz > S_S19_consensus.fasta
+
+STEP 11 — Check final genome size
+seqkit stats S_S19_consensus.fasta
