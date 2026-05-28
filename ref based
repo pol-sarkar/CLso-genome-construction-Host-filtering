@@ -45,3 +45,12 @@ cat reference.fna | bcftools consensus variants.vcf.gz > S_S19_consensus.fasta
 
 STEP 11 — Check final genome size
 seqkit stats S_S19_consensus.fasta
+
+
+STEP 12- validate quality:
+quast S_S19_consensus.fasta -o quast_consensus
+and
+samtools depth illumina.bam | awk '{sum+=$3} END {print "Final Illumina coverage =",sum/NR}'
+
+STEP 13- Annotate
+prokka --outdir annotation_S_S19 --prefix S_S19 S_S19_consensus.fasta
