@@ -1,79 +1,20 @@
-nano nanopore_clso_extract_all.slurm
-
-#!/bin/bash
-#SBATCH --job-name=CLso_extract_all
-#SBATCH --partition=epyc
-#SBATCH --cpus-per-task=16
-#SBATCH --mem=64G
-#SBATCH --time=48:00:00
-#SBATCH --output=logs/clso_extract_all_%j.out
-#SBATCH --error=logs/clso_extract_all_%j.err
-
-set -euo pipefail
-
-###############################################################################
-
-# CLso Nanopore Extraction FOR ALL SAMPLES
-###############################################################################
-mkdir -p logs
-
-module purge
-module load minimap2
-module load samtools
-
+1. Go to project folder
 cd ~/shared/labprojects/WGS-Liberibacter-Pol
+2. Load required tools
+module load Flye minimap2 samtools seqkit
+3. Extract ONLY CLso-mapped ONT reads
+minimap2 -t 16 -ax map-ont reference/CLso_ref/ncbi_dataset/data/GCA_000183665.1/GCA_000183665.1_ASM18366v1_genomic.fna Nanopore_host_filtered/S_S19_host_filtered.fastq.gz | samtools view -b -F 4 - > S_S19_CLso.bam
 
-REF="reference/CLso_ref/ncbi_dataset/data/GCA_000183665.1/GCA_000183665.1_ASM18366v1_genomic.fna"
-###############################################################################
-# BUILD INDEX ONCE
-###############################################################################
+4. Convert mapped reads back to FASTQ
+samtools fastq S_S19_CLso.bam | gzip > S_S19_CLso_only.fastq.gz
 
-echo "Building reference index..."
-minimap2 -d clso.mmi "$REF"
+5. Keep only long high-quality reads
+seqkit seq -m 5000 S_S19_CLso_only.fastq.gz | gzip > S_S19_CLso_5kb.fastq.gz
 
-###############################################################################
-# LOOP OVER ALL SAMPLES
-###############################################################################
+6. Check remaining data
+seqkit stats S_S19_CLso_5kb.fastq.gz
 
-for FASTQ in Nanopore_host_filtered/*host_filtered.fastq.gz; do
+7. Run Flye
+flye --nano-raw S_S19_CLso_5kb.fastq.gz -g 1.3m -o flye_S19_final -t 4
 
-    SAMPLE=$(basename "$FASTQ" | sed 's/_host_filtered.fastq.gz//')
-    echo "======================================================"
-    echo "Processing: $SAMPLE"
-    echo "File: $FASTQ"
-    echo "======================================================"
-
-    OUTBAM="${SAMPLE}_CLso.bam"
-    OUTFASTQ="${SAMPLE}_CLso_enriched.fastq"
-
-    # Mapping
-    minimap2 -ax map-ont clso.mmi "$FASTQ" | \
-    samtools sort -@ 16 -o "$OUTBAM"
-   samtools index "$OUTBAM"
-
-    # Extract only mapped reads
-    samtools fastq -F 4 "$OUTBAM" > "$OUTFASTQ"
-
-    # Stats
-    TOTAL=$(samtools view -c "$OUTBAM")
-    MAPPED=$(samtools view -c -F 4 "$OUTBAM")
-    echo "Sample: $SAMPLE"
-    echo "Total reads: $TOTAL"
-    echo "Mapped reads: $MAPPED"
-    echo ""
-done
-echo "ALL SAMPLES COMPLETED"
-----------------------------------------------------------------------------------------------------
-----------------------------------------------------------------------------------------------------
-For illumina
-
-bwa mem \
-reference/CLso_ref/ncbi_dataset/data/GCA_000183665.1/GCA_000183665.1_ASM18366v1_genomic.fna \
-host_filtered_fastq/S_S19/S_S19_clean_R1.fastq.gz \
-host_filtered_fastq/S_S19/S_S19_clean_R2.fastq.gz | \
-samtools sort -o S_S19_clso_illumina.bam
-
------------------------------------------------------------------------------------------------
----------------------------------------------------------------
-flye --nano-hq Nanopore_host_filtered/S_S19_host_filtered.fastq.gz -g 1.3m -o flye_CLso_S19 -t 16 --asm-coverage 40
-
+8. seqkit stats flye_S19_final/assembly.fasta
