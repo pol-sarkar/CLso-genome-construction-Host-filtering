@@ -1,5 +1,3 @@
-
-
 ##Create CLso-enriched ONT reads for all samples.
 nano clso_hpc_safe_v2.slurm
 
@@ -151,8 +149,17 @@ echo "DONE: $SAMPLE"
 for f in */*_consensus.fasta; do [ -f "$f" ] || continue; sample=$(basename "$f" _consensus.fasta); echo "Annotating $sample"; prokka "$f" --outdir annotation_"$sample" --prefix "$sample"; done
 
 
+##For quast
+
 for f in */*_consensus.fasta; do
     sample=$(basename "$f" _consensus.fasta)
     echo "QUAST: $sample"
     quast.py "$f" -o quast_"$sample" --silent
 done
+
+
+## to check circularity
+grep -i "circular" quast_*/report.txt
+
+grep "# contigs" report.txt (you should get 1) OR for f in */quast_*/report.txt; do echo "==== $f ===="; grep "# contigs" "$f"; done
+grep "Total length" report.txt (it should be around genome size)  OR for f in */quast_*/report.txt; do echo "==== $f ===="; grep "Total length" "$f"; done
