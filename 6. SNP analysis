@@ -1,0 +1,20 @@
+BEST TOOL FOR YOU: Snippy
+
+Use:
+Snippy GitHub
+cd ~/shared/labprojects/WGS-Liberibacter-Pol
+module load snippy
+#check one sample
+snippy --cpus 8 --outdir A_S1_snippy --ref reference_guided_worked/A_S1/reference.fna --R1 host_filtered_fastq/A_S1/A_S1_clean_R1.fastq.gz --R2 host_filtered_fastq/A_S1/A_S1_clean_R2.fastq.gz
+
+#Run snippy for all samples
+while read S; do snippy --cpus 8 --outdir ${S}_snippy --ref reference_guided_worked/A_S1/reference.fna --R1 host_filtered_fastq/${S}/${S}_clean_R1.fastq.gz --R2 host_filtered_fastq/${S}/${S}_clean_R2.fastq.gz; done < samples.txt
+
+4. Build SNP core alignment
+snippy-core --ref reference_guided_worked/A_S1/reference.fna *_snippy
+
+5. Build phylogenetic tree
+iqtree2 -s core.full.aln -m GTR+G -bb 1000
+
+6. Check results quickly
+ls *_snippy
