@@ -40,7 +40,7 @@ module load seqkit/2.4.0
 BASE="/bigdata/maucklab/shared/labprojects/WGS-Liberibacter-Pol"
 OUT="$BASE/reference_guided/results"
 ONT="$BASE/clso_nanopore_clean"
-REF=/rhome/poulamis/shared/labprojects/WGS-Liberibacter-Pol/reference/CLso_ref/GCF_000183665.1_ASM18366v1_genomic.fna"
+REF="/rhome/poulamis/shared/labprojects/WGS-Liberibacter-Pol/reference/CLso_ref/GCF_000183665.1_ASM18366v1_genomic.fna""
 
 mkdir -p "$OUT/logs"
 
