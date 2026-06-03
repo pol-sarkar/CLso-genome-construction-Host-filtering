@@ -8,7 +8,7 @@ STEP 2 — Link your files
 ln -s ../../host_filtered_fastq/S_S19/S_S19_clean_R1.fastq.gz .
 ln -s ../../host_filtered_fastq/S_S19/S_S19_clean_R2.fastq.gz .
 ln -s ../../clso_nanopore_clean/S_S19_CLso_only.fastq.gz .
-ln -s ../../reference/CLso_ref/ncbi_dataset/data/GCA_000183665.1/GCA_000183665.1_ASM18366v1_genomic.fna reference.fna
+ln -s ../../reference/CLso_ref/GCF_000183665.1_ASM18366v1_genomic.fna
 
 STEP 3 — Load tools
 module load bwa minimap2 samtools bcftools
