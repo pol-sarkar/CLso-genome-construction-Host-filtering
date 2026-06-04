@@ -1,8 +1,15 @@
+module load bwa/0.7.19
+module load samtools/1.22.1
+
+cd /rhome/poulamis/shared/labprojects/WGS-Liberibacter-Pol/reference/CLso_ref
+
+bwa index GCF_000183665.1_ASM18366v1_genomic.fna
+samtools faidx GCF_000183665.1_ASM18366v1_genomic.fna
+
 ##Create CLso-enriched ONT reads for all samples.
 nano clso_hpc_safe_v2.slurm
 
 dos2unix clso_hpc_safe_v2.slurm
-
 
 
 #!/bin/bash -l
@@ -19,8 +26,9 @@ dos2unix clso_hpc_safe_v2.slurm
 set -euo pipefail
 
 ###############################################################################
-# SAFETY FIX (HPC MODULE ENV)
+# SAFETY FIX
 ###############################################################################
+
 unset PS1 || true
 source /etc/profile.d/modules.sh 2>/dev/null || true
 module purge
@@ -28,6 +36,7 @@ module purge
 ###############################################################################
 # MODULES
 ###############################################################################
+
 module load bwa/0.7.19
 module load minimap2/2.30
 module load samtools/1.22.1
@@ -37,112 +46,190 @@ module load seqkit/2.4.0
 ###############################################################################
 # PATHS
 ###############################################################################
-BASE="/bigdata/maucklab/shared/labprojects/WGS-Liberibacter-Pol"
-OUT="$BASE/reference_guided/results"
-ONT="$BASE/clso_nanopore_clean"
-REF="/rhome/poulamis/shared/labprojects/WGS-Liberibacter-Pol/reference/CLso_ref/GCF_000183665.1_ASM18366v1_genomic.fna""
 
-mkdir -p "$OUT/logs"
+BASE="/bigdata/maucklab/shared/labprojects/WGS-Liberibacter-Pol"
+
+OUT="$BASE/reference_guided/results"
+
+ONT="$BASE/clso_nanopore_clean"
+
+REF="/rhome/poulamis/shared/labprojects/WGS-Liberibacter-Pol/reference/CLso_ref/GCF_000183665.1_ASM18366v1_genomic.fna"
+
+mkdir -p logs
+mkdir -p "$OUT"
 
 ###############################################################################
 # SAMPLE
 ###############################################################################
-SAMPLE=$(sed -n "$((SLURM_ARRAY_TASK_ID+1))p" "$BASE/reference_guided/samples.txt")
 
-echo "Processing: $SAMPLE"
+SAMPLE=$(sed -n "$((SLURM_ARRAY_TASK_ID+1))p" \
+"$BASE/reference_guided/samples.txt")
+
+echo "================================================="
+echo "Processing sample: $SAMPLE"
+echo "================================================="
 
 ###############################################################################
-# STRUCTURED OUTPUT DIRS
+# OUTPUT DIRS
 ###############################################################################
+
 WORKDIR="$OUT/$SAMPLE"
+
 BAM_DIR="$WORKDIR/bam"
 VCF_DIR="$WORKDIR/vcf"
 CONS_DIR="$WORKDIR/consensus"
 QC_DIR="$WORKDIR/quast"
 ANN_DIR="$WORKDIR/annotation"
 
-mkdir -p "$BAM_DIR" "$VCF_DIR" "$CONS_DIR" "$QC_DIR" "$ANN_DIR"
+mkdir -p "$BAM_DIR"
+mkdir -p "$VCF_DIR"
+mkdir -p "$CONS_DIR"
+mkdir -p "$QC_DIR"
+mkdir -p "$ANN_DIR"
 
 cd "$WORKDIR"
 
 ###############################################################################
 # INPUT FILES
 ###############################################################################
+
 R1="$BASE/host_filtered_fastq/$SAMPLE/${SAMPLE}_clean_R1.fastq.gz"
 R2="$BASE/host_filtered_fastq/$SAMPLE/${SAMPLE}_clean_R2.fastq.gz"
+
 ONT_READS="$ONT/${SAMPLE}_CLso_only.fastq.gz"
 
-[[ -f "$R1" && -f "$R2" && -f "$ONT_READS" ]] || exit 0
+if [[ ! -f "$R1" ]]; then
+    echo "Missing: $R1"
+    exit 1
+fi
+
+if [[ ! -f "$R2" ]]; then
+    echo "Missing: $R2"
+    exit 1
+fi
+
+if [[ ! -f "$ONT_READS" ]]; then
+    echo "Missing: $ONT_READS"
+    exit 1
+fi
 
 ###############################################################################
 # REFERENCE
 ###############################################################################
-if [[ ! -f reference.fna ]]; then
-    ln -s "$REF" reference.fna
-    bwa index reference.fna
-    samtools faidx reference.fna
-fi
+
+ln -sf "$REF" reference.fna
 
 ###############################################################################
-# BAMs
+# ILLUMINA MAPPING
 ###############################################################################
-bwa mem -t 16 reference.fna "$R1" "$R2" | \
-samtools sort -@ 8 -o "$BAM_DIR/illumina.bam"
+
+echo "Running bwa mem..."
+
+bwa mem -t 16 reference.fna "$R1" "$R2" \
+| samtools sort -@ 8 -o "$BAM_DIR/illumina.bam"
 
 samtools index "$BAM_DIR/illumina.bam"
 
-minimap2 -t 16 -ax map-ont reference.fna "$ONT_READS" | \
-samtools sort -@ 8 -o "$BAM_DIR/ont.bam"
+###############################################################################
+# ONT MAPPING
+###############################################################################
+
+echo "Running minimap2..."
+
+minimap2 -t 16 -ax map-ont reference.fna "$ONT_READS" \
+| samtools sort -@ 8 -o "$BAM_DIR/ont.bam"
 
 samtools index "$BAM_DIR/ont.bam"
 
-samtools merge "$BAM_DIR/combined.bam" \
+###############################################################################
+# MERGE BAMS
+###############################################################################
+
+echo "Merging BAMs..."
+
+samtools merge -f \
+    "$BAM_DIR/combined.bam" \
     "$BAM_DIR/illumina.bam" \
     "$BAM_DIR/ont.bam"
 
 samtools index "$BAM_DIR/combined.bam"
 
 ###############################################################################
-# VARIANTS
+# VARIANT CALLING
 ###############################################################################
-bcftools mpileup -Ou -f reference.fna "$BAM_DIR/combined.bam" | \
-bcftools call -mv -Oz -o "$VCF_DIR/variants.vcf.gz"
 
-bcftools index "$VCF_DIR/variants.vcf.gz"
+echo "Calling variants..."
+
+bcftools mpileup \
+    -Ou \
+    -f reference.fna \
+    "$BAM_DIR/combined.bam" \
+| bcftools call \
+    -mv \
+    -Oz \
+    -o "$VCF_DIR/variants.vcf.gz"
+
+bcftools index -f "$VCF_DIR/variants.vcf.gz"
 
 ###############################################################################
 # CONSENSUS
 ###############################################################################
-bcftools consensus -f reference.fna "$VCF_DIR/variants.vcf.gz" \
-> "$CONS_DIR/${SAMPLE}_consensus.fasta"
 
-seqkit stats "$CONS_DIR/${SAMPLE}_consensus.fasta" > "$CONS_DIR/stats.txt"
+echo "Generating consensus..."
+
+bcftools consensus \
+    -f reference.fna \
+    "$VCF_DIR/variants.vcf.gz" \
+    > "$CONS_DIR/${SAMPLE}_consensus.fasta"
+
+seqkit stats \
+    "$CONS_DIR/${SAMPLE}_consensus.fasta" \
+    > "$CONS_DIR/stats.txt"
 
 ###############################################################################
-# QC
+# QUAST (OPTIONAL)
 ###############################################################################
-quast.py "$CONS_DIR/${SAMPLE}_consensus.fasta" -o "$QC_DIR" --silent || true
+
+if command -v quast.py >/dev/null 2>&1; then
+
+    echo "Running QUAST..."
+
+    quast.py \
+        "$CONS_DIR/${SAMPLE}_consensus.fasta" \
+        -o "$QC_DIR" \
+        --silent
+
+else
+
+    echo "QUAST not available - skipping"
+
+fi
 
 ###############################################################################
-# ANNOTATION (SAFE MODULE HANDLING)
+# PROKKA (OPTIONAL)
 ###############################################################################
+
 if module avail prokka >/dev/null 2>&1; then
+
     module load prokka/1.14.5
 
-    prokka "$CONS_DIR/${SAMPLE}_consensus.fasta" \
+    prokka \
+        "$CONS_DIR/${SAMPLE}_consensus.fasta" \
         --outdir "$ANN_DIR" \
         --prefix "$SAMPLE" \
         --genus Liberibacter \
         --kingdom Bacteria \
         --cpus 8 || true
+
 fi
 
 ###############################################################################
-# CLEANUP
+# SUMMARY
 ###############################################################################
-rm -f "$BAM_DIR"/*.bam "$BAM_DIR"/*.bai || true
 
 echo "DONE: $SAMPLE"
+
+ls -lh "$CONS_DIR/${SAMPLE}_consensus.fasta"
 ======-===========================================================================
 ================================================================================
 #RUN annotation from ref_guided folder
