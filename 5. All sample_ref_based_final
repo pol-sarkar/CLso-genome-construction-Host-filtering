@@ -40,6 +40,8 @@ grep "# contigs" report.txt (you should get 1) OR for f in */quast_*/report.txt;
 grep "Total length" report.txt (it should be around genome size)  OR for f in */quast_*/report.txt; do echo "==== $f ===="; grep "Total length" "$f"; done
 
 
+
+------------------------------------------------------------
 ## to export:
 echo -e "Sample\tContigs\tGenome_Size" > assembly_summary.tsv && for f in */quast_*/report.tsv; do sample=$(echo $f | cut -d/ -f1); contigs=$(grep "^# contigs" "$f" | cut -f2); length=$(grep "^Total length" "$f" | cut -f2); echo -e "$sample\t$contigs\t$length"; done >> assembly_summary.tsv
 cat assembly_summary.tsv
