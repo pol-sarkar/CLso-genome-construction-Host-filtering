@@ -18,15 +18,20 @@ dos2unix clso_hpc_safe_v2.slurm
 ## Run quast
 module load quast
 quast.py results/A_S1/consensus/A_S1_consensus.fasta -o quast_A_S1
-quast.py results/R_S18/consensus/R_S18_consensus.fasta -o quast_R_S18
+quast.py results/S_S19/consensus/S_S19_consensus.fasta -o quast_S_S19
 ----------------------------------------------------------------------------------------
 ## Annotation
 prokka results/A_S1/consensus/A_S1_consensus.fasta \
---outdir prokka_A_S1 \
---prefix A_S1 \
---genus Liberibacter \
---kingdom Bacteria
+  --outdir results/A_S1/annotation \
+  --prefix A_S1 \
+  --genus Liberibacter \
+  --kingdom Bacteria \
+  --cpus 8
+--------------------------------------------
+## batch run for all samples
+module load prokka/1.14.5
 
+for f in results/*/consensus/*_consensus.fasta; do s=$(basename "$f" _consensus.fasta); mkdir -p results/$s/annotation; prokka "$f" --outdir results/$s/annotation --prefix "$s" --genus Liberibacter --kingdom Bacteria --cpus 8 --force; done
 ---------------------------------------------------------------------------------------
 ## to check circularity
 grep -i "circular" quast_*/report.txt
