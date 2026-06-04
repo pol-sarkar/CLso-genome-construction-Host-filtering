@@ -1,20 +1,18 @@
-BEST TOOL FOR YOU: Snippy
+From : reference_guided
 
-Use:
-Snippy GitHub
-cd ~/shared/labprojects/WGS-Liberibacter-Pol
-module load snippy
-#check one sample
-snippy --cpus 8 --outdir A_S1_snippy --ref reference_guided_worked/A_S1/reference.fna --R1 host_filtered_fastq/A_S1/A_S1_clean_R1.fastq.gz --R2 host_filtered_fastq/A_S1/A_S1_clean_R2.fastq.gz
+mkdir -p SNPs
 
-#Run snippy for all samples
-while read S; do snippy --cpus 8 --outdir ${S}_snippy --ref reference_guided_worked/A_S1/reference.fna --R1 host_filtered_fastq/${S}/${S}_clean_R1.fastq.gz --R2 host_filtered_fastq/${S}/${S}_clean_R2.fastq.gz; done < samples.txt
+REF="/rhome/poulamis/shared/labprojects/WGS-Liberibacter-Pol/reference/CLso_ref/GCF_000183665.1_ASM18366v1_genomic.fna"
 
-4. Build SNP core alignment
-snippy-core --ref reference_guided_worked/A_S1/reference.fna *_snippy
+for bam in results/*/bam/combined.bam; do sample=$(echo "$bam" | cut -d'/' -f2); echo "Processing $sample"; bcftools mpileup -f "$REF" "$bam" | bcftools call -mv --ploidy 1 -Oz -o SNPs/${sample}.vcf.gz; bcftools index -f SNPs/${sample}.vcf.gz; done
+--------------------------------------------------------------------------------
+#Filter
+for vcf in SNPs/[A-S]_S*.vcf.gz; do sample=$(basename "$vcf" .vcf.gz); bcftools filter -e 'QUAL<20 || DP<10' -Oz -o SNPs/${sample}.filtered.vcf.gz "$vcf"; bcftools index -f SNPs/${sample}.filtered.vcf.gz; done
+#check
+ls SNPs/*.filtered.vcf.gz | wc -l
 
-5. Build phylogenetic tree
-iqtree2 -s core.full.aln -m GTR+G -bb 1000
+## Merge them
+bcftools merge SNPs/*.filtered.vcf.gz -Oz -o merged.vcf.gz
+bcftools index merged.vcf.gz
 
-6. Check results quickly
-ls *_snippy
+which vcf2phylip.py
