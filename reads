@@ -1,0 +1,19 @@
+for number of reads per illumina
+
+(base) poulamis@skylark:~/shared/labprojects/WGS-Liberibacter-Pol$ for f in NGS_fastq/*R1*.fastq.gz
+> 
+> do
+> 
+> sample=$(basename "$f" | sed 's/_R1.*//')
+> 
+> echo -n "$sample "
+> 
+> zcat "$f" | awk 'END{print NR/4}'
+> 
+> done > raw_reads.txt
+
+##number of CLso-aligned reads per sample
+for bam in reference_guided/results/*/bam/combined.bam; do sample=$(echo "$bam" | cut -d'/' -f3); mapped=$(samtools view -c -F 4 "$bam"); echo "$sample $mapped"; done | sort
+
+## nanopore enrichment
+REF="reference/CLso_ref/GCF_000183665.1_ASM18366v1_genomic.fna"; echo -e "Sample\tTotal_reads\tCLso_mapped\tPercent_CLso" > CLso_summary.tsv; for f in Nanopore_host_filtered/*.fastq.gz; do sample=$(basename "$f" _host_filtered.fastq.gz); echo "Processing $sample"; if ! gzip -t "$f" 2>/dev/null; then echo -e "$sample\tCORRUPTED_FILE\tNA\tNA" >> CLso_summary.tsv; continue; fi; total=$(zcat "$f" | awk 'NR%4==1' | wc -l); minimap2 -t 4 -ax map-ont "$REF" "$f" 2>/dev/null | samtools view -c -F 4 2>/dev/null > tmp_mapped; mapped=$(cat tmp_mapped); pct=$(awk -v m="$mapped" -v t="$total" 'BEGIN{if(t>0) printf "%.4f", (m/t)*100; else print 0}'); echo -e "$sample\t$total\t$mapped\t$pct" >> CLso_summary.tsv; done; rm -f tmp_mapped
