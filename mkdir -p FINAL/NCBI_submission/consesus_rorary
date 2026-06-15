@@ -1,0 +1,104 @@
+mkdir -p FINAL/NCBI_submission/{assemblies,annotations,vcfs,metadata}
+
+##Copy all consensus genome
+find reference_guided/results -path "*/consensus/*.fa*" -exec cp {} FINAL/NCBI_submission/assemblies/ \;
+
+Copy all prokka
+find reference_guided/results -path "*/annotation/*" \( -name "*.gff" -o -name "*.gbk" -o -name "*.faa" -o -name "*.ffn" -o -name "*.fna" -o -name "*.tsv" \) -exec cp {} FINAL/NCBI_submission/annotations/ \;
+
+for f in FINAL/NCBI_submission/annotations/*.faa; do echo -e "$(basename $f .faa)\t$(grep -c '^>' $f)"; done | column -t | sort
+
+mkdir -p FINAL/pangenome && cat FINAL/NCBI_submission/annotations/*.faa > FINAL/pangenome/all_proteins.faa
+grep -c "^>" FINAL/pangenome/all_proteins.faa
+module avail roary panaroo cd-hit orthofinder
+
+#check that all 19 GFF files are present
+ls FINAL/NCBI_submission/annotations/*.gff | wc -l
+
+#Run roray
+module load roary && roary -e -n -p 8 -f FINAL/roary FINAL/NCBI_submission/annotations/*.gff
+
+#check
+ls FINAL/roary
+
+##LINEAGE-SPECIFIC GENE ENRICHMENT PIPELINE
+FINAL/roary_rebuilt/gene_presence_absence.csv
+FINAL/metadata/sample_metadata.tsv
+=====================================================================================
+python3 << 'EOF'
+import pandas as pd
+import numpy as np
+from scipy.stats import fisher_exact
+
+# -----------------------------
+# Load data
+# -----------------------------
+roary = pd.read_csv("FINAL/roary_rebuilt/gene_presence_absence.csv")
+meta = pd.read_csv("FINAL/metadata/sample_metadata.tsv", sep="\t")
+
+# clean column names
+samples = meta["sample"].tolist()
+
+# map sample -> lineage
+sample_to_lineage = dict(zip(meta["sample"], meta["lineage"]))
+
+lineages = meta["lineage"].unique()
+
+# -----------------------------
+# helper: presence check
+# -----------------------------
+def present(x):
+    return pd.notna(x) and x != ""
+
+results = []
+
+# -----------------------------
+# enrichment test per gene per lineage
+# -----------------------------
+for lineage in lineages:
+    group_samples = meta[meta["lineage"] == lineage]["sample"].tolist()
+    other_samples = [s for s in samples if s not in group_samples]
+
+    for _, row in roary.iterrows():
+        gene = row["Gene"]
+        annotation = row["Annotation"]
+
+        # counts
+        a = sum(present(row[s]) for s in group_samples)
+        b = len(group_samples) - a
+
+        c = sum(present(row[s]) for s in other_samples)
+        d = len(other_samples) - c
+
+        # skip uninformative genes
+        if (a + c) == 0:
+            continue
+
+        # Fisher's exact test
+        table = np.array([[a, b], [c, d]])
+        _, p = fisher_exact(table, alternative="greater")
+
+        # enrichment score
+        enrichment = (a / len(group_samples)) / ((c + 1) / len(other_samples))
+
+        if a > 0 and c == 0:
+            results.append([gene, annotation, lineage, a, c, enrichment, p])
+
+# -----------------------------
+# output
+# -----------------------------
+df = pd.DataFrame(results, columns=[
+    "Gene","Annotation","Lineage",
+    "InGroup","OutGroup",
+    "EnrichmentScore","Pvalue"
+])
+
+# FDR correction (simple Benjamini-Hochberg)
+df["FDR_rank"] = df["Pvalue"].rank(method="min")
+df["FDR"] = df["Pvalue"] * len(df) / df["FDR_rank"]
+
+df.to_csv("FINAL/lineage_gene_enrichment.tsv", sep="\t", index=False)
+
+print(df.sort_values("EnrichmentScore", ascending=False).head(20))
+EOF
+===============================================================================
