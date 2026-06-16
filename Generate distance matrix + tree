@@ -1,0 +1,94 @@
+conda create -n roary_env python=3.9 -y
+conda activate roary_env
+conda install -c conda-forge pandas numpy matplotlib scipy seaborn scikit-learn scikit-bio -y
+
+
+#Generate distance matrix + tree (dendogram)
+nano dendrogram.py
+
+import pandas as pd
+import numpy as np
+from scipy.cluster.hierarchy import linkage, dendrogram
+import matplotlib.pyplot as plt
+
+df = pd.read_csv("FINAL/roary_rebuilt/gene_presence_absence.csv")
+
+X = df.iloc[:, 14:].notna().astype(int).T
+
+# distance = Jaccard (good for pan-genome)
+from sklearn.metrics import pairwise_distances
+dist = pairwise_distances(X, metric="jaccard")
+
+Z = linkage(dist, method="average")
+
+plt.figure(figsize=(10,5))
+dendrogram(Z, labels=X.index, leaf_rotation=90)
+plt.title("Core Genome Dendrogram (Roary)")
+plt.tight_layout()
+
+plt.savefig("FINAL/dendrogram.png", dpi=300)
+plt.show()
+-------------------------------------
+python dendrogram.py
+============================================
+#STEP 2 — Gene presence/absence heatmap
+
+nano heatmap.py
+
+
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+df = pd.read_csv("FINAL/roary_rebuilt/gene_presence_absence.csv")
+
+X = df.iloc[:, 14:].notna().astype(int).T
+
+# cluster map (VERY publication standard)
+sns.clustermap(
+    X,
+    figsize=(10,10),
+    cmap="viridis",
+    xticklabels=False,
+    yticklabels=True
+)
+
+plt.savefig("FINAL/pangenome_heatmap.png", dpi=300)
+plt.show()
+===============================
+#STEP 3: PERMANOVA
+nano permanova.py
+pip install scikit-bio
+
+import pandas as pd
+from skbio.stats.distance import DistanceMatrix
+from skbio.stats.distance import permanova
+from sklearn.metrics import pairwise_distances
+
+# metadata
+meta = pd.read_csv("FINAL/metadata/sample_metadata.tsv", sep="\t")
+
+# genome matrix
+df = pd.read_csv("FINAL/roary_rebuilt/gene_presence_absence.csv")
+X = df.iloc[:, 14:].notna().astype(int).T
+
+# distance matrix (Jaccard)
+dist = pairwise_distances(X, metric="jaccard")
+dm = DistanceMatrix(dist, ids=X.index)
+
+meta = meta.set_index("sample").loc[X.index]
+
+# PERMANOVA lineage
+res_lineage = permanova(dm, meta, column="lineage", permutations=999)
+print("LINEAGE:\n", res_lineage)
+
+# PERMANOVA host
+res_host = permanova(dm, meta, column="host", permutations=999)
+print("HOST:\n", res_host)
+
+=================
+===================
+RUN one by one
+python dendrogram.py
+python heatmap.py
+python permanova.py
