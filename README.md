@@ -1,57 +1,101 @@
-# CLso-genome-construction-Host-filtering
-Low abundance CLso genome construction-Host filtering
-FASTQ (trimmed reads)
-        ↓
-BWA mapping to host genomes (plant + insect)
-        ↓
-samtools view -f 12  (keep unmapped pairs)
-        ↓
-host-free FASTQ
-        ↓
-assembly / CLso analysis
+# Liberibacter NGS Project: Genome Reconstruction, Annotation, and Comparative Genomics
 
+This repository contains bioinformatics workflows for whole-genome reconstruction and comparative genomics of *“Candidatus Liberibacter”* spp. from Illumina and Nanopore sequencing data. The pipeline is designed for low-titer bacterial pathogens recovered from host-associated samples.
 
-1. Host-filter Illumina (DONE ✔)
-2. Host-filter ONT (NOW DO THIS ✔)
-3.Option 1 (BEST): Hybrid reference-guided polishing
+---
 
-Use:
+## Workflow Overview
 
-your Illumina reads
-your cleaned ONT reads
-CLso reference
+The analytical workflow follows a reference-guided genome reconstruction and downstream comparative genomics strategy:
 
-Pipeline:
+RAW READS  
+↓  
+Host filtering (removal of plant/insect reads)  
+↓  
+Read mapping to reference genome (BWA / minimap2)  
+↓  
+Variant calling (BCFtools / GATK) → VCF generation  
+↓  
+Consensus genome reconstruction (bcftools consensus)  
+↓  
+Reference-guided consensus FASTA generation (final genome sequences)  
+↓  
+Genome annotation (Prokka)  
+↓  
+Pan-genome analysis (Roary)  
+↓  
+Lineage-specific gene enrichment analysis (Fisher’s exact test + FDR correction)
 
-map ONT + Illumina to reference
-generate consensus
-polish with Illumina
-recover variants/haplotypes
+---
 
-This will give you:
+## Key Methodological Notes
 
-nearly complete genome
-publication-quality SNP calls
-strain comparison across samples
+- Final genome sequences are reference-guided consensus assemblies reconstructed from read alignments to a reference genome.
+- This approach was used due to low pathogen titer, uneven sequencing depth, and limitations of de novo assembly in several samples.
+- All genomes were reconstructed using a consistent reference framework to ensure comparability across samples.
 
-and is MUCH more realistic than forcing Flye.
+---
 
-Important conclusion
+## Outputs
 
-NOT have enough ONT depth for:
+### Consensus Genomes
+- `*.fasta` → reference-guided consensus genome sequences per sample
 
-single-contig de novo assembly
-circular chromosome reconstruction
+### Genome Annotation (Prokka)
+- `*.gff` → gene feature annotations  
+- `*.gbk` → GenBank formatted annotations  
+- `*.faa` → predicted protein sequences  
+- `*.ffn` → nucleotide CDS sequences  
+- `*.fna` → annotated genome FASTA  
+- `*.tsv` → annotation summary tables  
 
-But you DO have enough for:
+### Comparative Genomics
+- Gene presence/absence matrix (Roary)
+- Pan-genome clustering
+- Lineage-specific gene enrichment results
 
-reference-guided complete genome reconstruction.
+---
 
-Flye de novo alone → failed (fragmented, contamination, low coverage)
-Host filtering alone → insufficient enrichment
+## Downstream Analyses
 
-Final successful strategy:
+- Pan-genome construction using Roary
+- Gene presence/absence comparisons across lineages
+- Fisher’s exact test for lineage-specific gene enrichment
+- Benjamini–Hochberg FDR correction for multiple testing
 
-reference-guided read enrichment + consensus reconstruction
+---
 
-To overcome low pathogen abundance and host contamination, we implemented a combined reference-guided enrichment and hybrid sequencing strategy, using long-read nanopore and short-read Illumina data to reconstruct high-quality CLso genomes. A final consensus genome (~1.27 Mb) was generated through reference-based read mapping and variant-aware consensus calling, followed by structural and functional annotation.
+## Software Used
+
+- BWA / minimap2  
+- Samtools  
+- BCFtools / GATK  
+- Prokka  
+- Roary  
+- Python (pandas, numpy, scipy)
+
+---
+
+## Directory Structure
+
+FINAL/NCBI_submission/  
+├── assemblies/    # consensus genome FASTA files  
+├── annotations/   # Prokka annotation outputs  
+├── vcfs/          # variant call files (optional)  
+├── metadata/      # sample metadata tables  
+
+---
+
+## Notes
+
+This repository contains reference-guided genome reconstructions rather than de novo assemblies. It is optimized for:
+
+- Low-abundance bacterial pathogen detection  
+- Host-contaminated sequencing datasets  
+- Comparative genomics across closely related strains  
+
+---
+
+## Citation
+
+If you use this workflow, please cite or acknowledge accordingly.
