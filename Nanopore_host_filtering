@@ -1,8 +1,11 @@
 module load minimap2
 module load samtools
+==========================
 
+=================================================================
 Step 2 — map Nanopore reads to host
-nano nanopore_host_filter.slurm
+
+
 -----------------------------------------------------------------------
 #!/bin/bash
 
