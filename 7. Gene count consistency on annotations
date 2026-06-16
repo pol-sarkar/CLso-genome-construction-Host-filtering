@@ -1,0 +1,109 @@
+for f in FINAL/NCBI_submission/annotations/*.faa; do
+    echo -e "$(basename $f .faa)\t$(grep -c '^>' $f)"
+done | sort -k2 -n
+
+B. Genome size check (VERY important)
+for f in FINAL/NCBI_submission/assemblies/*.fasta; do
+    echo -e "$(basename $f)\t$(grep -v '^>' $f | tr -d '\n' | wc -c)"
+done | sort -k2 -n
+
+C. Missing gene inflation check (annotation quality)
+grep -c "hypothetical" FINAL/NCBI_submission/annotations/*.tsv | head
+
+D.
+=====================================
+FOR Coordinates
+nano make_pca_coords.py
+import pandas as pd
+import numpy as np
+
+df = pd.read_csv("FINAL/roary_rebuilt/gene_presence_absence.csv")
+
+# gene matrix
+X = df.iloc[:, 14:].notna().astype(int).T
+
+# PCA via SVD
+X_centered = X - X.mean(axis=0)
+U, S, Vt = np.linalg.svd(X_centered, full_matrices=False)
+coords = U[:, :2] * S[:2]
+
+pca_df = pd.DataFrame({
+    "sample": X.index,
+    "PC1": coords[:,0],
+    "PC2": coords[:,1]
+})
+
+pca_df.to_csv("FINAL/pangenome_PCA_coordinates.tsv", sep="\t", index=False)
+
+print("DONE: PCA coordinates written")
+print(pca_df.head())
+====================================================
+python make_pca_coords.py
+
+#Check if file exists
+ls -lh FINAL/pangenome_PCA_coordinates.tsv
+==========================================================
+ PCA clustering for Gene presence/absence matrix (Roary output)
+nano pca_roary.py
+
+import pandas as pd
+import matplotlib.pyplot as plt
+import matplotlib.lines as mlines
+
+pca = pd.read_csv("FINAL/pangenome_PCA_coordinates.tsv", sep="\t")
+meta = pd.read_csv("FINAL/metadata/sample_metadata.tsv", sep="\t")
+
+df = pca.merge(meta, on="sample")
+
+colors = {
+    "CLsoG":"red",
+    "CLsoSumb2":"blue",
+    "Sumb2":"cyan",
+    "CLsoA":"green",
+    "Southwestern":"orange",
+    "CLsoF":"purple"
+}
+
+markers = {
+    "Psyllid":"o",
+    "Plant":"s"
+}
+
+plt.figure(figsize=(9,7))
+
+# scatter plot (clean, no labels)
+for _, row in df.iterrows():
+    plt.scatter(
+        row["PC1"],
+        row["PC2"],
+        color=colors[row["lineage"]],
+        marker=markers[row["host"]],
+        s=90,
+        alpha=0.85
+    )
+
+# lineage legend
+lineage_handles = [
+    mlines.Line2D([], [], color=colors[k], marker='o', linestyle='None',
+                  markersize=8, label=k)
+    for k in colors
+]
+
+# host legend
+host_handles = [
+    mlines.Line2D([], [], color='black', marker=markers[k], linestyle='None',
+                  markersize=8, label=k)
+    for k in markers
+]
+
+plt.legend(handles=lineage_handles + host_handles, loc="best")
+
+plt.xlabel("PC1")
+plt.ylabel("PC2")
+plt.title("Liberibacter Pan-genome PCA (Lineage + Host)")
+plt.tight_layout()
+
+plt.savefig("FINAL/pangenome_PCA_FINAL.png", dpi=300)
+plt.show()
+=================================================================================
+Run python pca_roary.py
