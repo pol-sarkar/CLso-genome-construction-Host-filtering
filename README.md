@@ -99,3 +99,38 @@ This repository contains reference-guided genome reconstructions rather than de 
 ## Citation
 
 If you use this workflow, please cite or acknowledge accordingly.
+
+## Hybrid Genome Assembly (Exploratory)
+
+In addition to reference-guided consensus reconstruction, de novo hybrid genome assemblies were generated using Unicycler from host-filtered Illumina and Nanopore reads.
+
+### Input Data
+- Host-filtered Illumina paired-end reads
+- Host-filtered Nanopore long reads
+
+### Assembly Tool
+- Unicycler (hybrid assembly mode)
+
+### Output
+- `hybrid_assemblies/*/assembly.fasta`
+
+---
+
+## Interpretation
+
+Hybrid assemblies were generated to evaluate the feasibility of de novo genome reconstruction. However, assembly completeness varied across samples due to:
+
+- low Illumina sequencing depth in several samples
+- uneven long-read coverage after host filtering
+- high host-to-pathogen read ratio typical of Liberibacter datasets
+
+As a result, hybrid assemblies were not used for downstream comparative genomics or NCBI submission. Instead, reference-guided consensus genomes were used as the primary dataset.
+
+---
+
+## Role in Study
+
+Hybrid assemblies serve as:
+- validation of genome structure where successful
+- exploratory de novo comparison to reference-guided genomes
+- assessment of assembly feasibility under low-titer conditions
