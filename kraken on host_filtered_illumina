@@ -1,0 +1,6 @@
+grep -iE "membrane|outer|transport|secretion|efflux|adhesion|lipoprotein|surface" reference_guided/results/A_S1/annotation/A_S1.gff
+
+sbatch kraken_I_S9.slurm (This works)
+
+
+dos2unix kraken_A.slurm
