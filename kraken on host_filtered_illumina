@@ -2,14 +2,17 @@ module load kraken2/2.1.3
 
 grep -iE "membrane|outer|transport|secretion|efflux|adhesion|lipoprotein|surface" reference_guided/results/A_S1/annotation/A_S1.gff
 
-sbatch kraken_P_S16.slurm (This works)
+sbatch kraken_I_S9.slurm (This works)
 
 
 dos2unix kraken_K_S11.slurm
 sbatch kraken_H_S48.slurm
 
 
-kraken_H_S8.slurm
+grep -i "Liberibacter" kraken2_illumina_hostfiltered/*.report > all_liberibacter_hits.txt
+
+cut -f6- all_liberibacter_hits.txt | sort | uniq -c | sort -nr
+=====================================================================================================
 
 #COMPARE CLSO COUNTS 
 for f in kraken2_illumina_hostfiltered/*.report; do
@@ -19,3 +22,91 @@ for f in kraken2_illumina_hostfiltered/*.report; do
     awk -v s="$s" '{print s"\t"$1"\t"$2"\t"$3}'
 
 done > CLso_counts.tsv
+====================================================
+echo -e "Sample\tPercent\tCladeReads\tDirectReads\tRank\tTaxID\tName" > Liberibacter_summary.tsv
+
+for f in kraken2_illumina_hostfiltered/*.report; do
+
+    sample=$(basename "$f" .report)
+
+    grep -i "Liberibacter" "$f" | \
+    awk -v s="$sample" '{
+        name=""
+        for(i=6;i<=NF;i++) name=name $i " "
+        print s"\t"$1"\t"$2"\t"$3"\t"$4"\t"$5"\t"name
+    }'
+
+done >> Liberibacter_summary.tsv
+===============================================
+==========================================
+#CHECK CARSONELLA
+cd ~/shared/labprojects/WGS-Liberibacter-Pol/kraken2_illumina_hostfiltered
+
+grep -i "Carsonella" *.report > Carsonella_hits.txt
+
+view: column -t Carsonella_hits.txt | less -S
+
+to look for common psyllid endosymbionts
+grep -iE "Carsonella|Wolbachia|Profftella|Arsenophonus|Rickettsia|Sodalis|Serratia|Hamiltonella|Portiera" \
+*.report > endosymbionts_hits.txt
+
+#MAKE A SUMMARY TABLE
+echo -e "Sample\tPercent\tCladeReads\tDirectReads\tRank\tTaxID\tName" > endosymbionts_summary.tsv
+==============================
+grep -iE "Carsonella|Wolbachia|Profftella|Arsenophonus|Rickettsia|Sodalis|Serratia|Hamiltonella|Portiera" \
+*.report | \
+awk '
+{
+    split($1,a,".report:")
+    sample=a[1]
+
+    name=""
+    for(i=6;i<=NF;i++)
+        name=name $i " "
+
+    print sample"\t"$1"\t"$2"\t"$3"\t"$4"\t"$5"\t"name
+}' >> endosymbionts_summary.tsv
+===========================
+grep -iE "Carsonella|Wolbachia|Profftella|Arsenophonus|Rickettsia|Sodalis|Serratia|Hamiltonella|Portiera|Liberibacter" *.report > symbionts_all.txt
+
+======================================
+#Just carsonella and CLSo
+grep -iE "Carsonella ruddii|Liberibacter solanacearum" *.report
+
+and then make a table
+echo -e "Sample\tTaxon\tPercent_reads\tClade_reads\tDirect_reads" \
+> symbiont_table.tsv
+
+grep -iE "Carsonella ruddii|Liberibacter solanacearum|Sodalis|Arsenophonus|Serratia|Wolbachia|Rickettsia" *.report | \
+awk '
+{
+split($1,a,":")
+sample=a[1]
+
+name=""
+for(i=6;i<=NF;i++) name=name $i " "
+
+print sample"\t"name"\t"$2"\t"$3"\t"$4
+}' >> symbiont_table.tsv
+=========================================
+==========================================
+#FOR SYMBIONT % TABLE:
+
+echo -e "Sample\tLiberibacter\tCarsonella\tSodalis\tArsenophonus\tSerratia\tWolbachia\tRickettsia" > symbiont_percent_table.tsv
+
+for f in *.report
+do
+
+sample=$(basename "$f" .report)
+
+lib=$(grep -m1 -iP "\tG\t34019\t.*Liberibacter$" "$f" | awk '{print $1}')
+car=$(grep -m1 -i "Carsonella ruddii" "$f" | awk '{print $1}')
+sod=$(grep -m1 -iP "\tG\t84565\t.*Sodalis$" "$f" | awk '{print $1}')
+ars=$(grep -m1 -iP "\tG\t637\t.*Arsenophonus$" "$f" | awk '{print $1}')
+ser=$(grep -m1 -iP "\tG\t613\t.*Serratia$" "$f" | awk '{print $1}')
+wol=$(grep -m1 -iP "\tG\t953\t.*Wolbachia$" "$f" | awk '{print $1}')
+ric=$(grep -m1 -iP "\tG\t780\t.*Rickettsia$" "$f" | awk '{print $1}')
+
+echo -e "${sample}\t${lib:-0}\t${car:-0}\t${sod:-0}\t${ars:-0}\t${ser:-0}\t${wol:-0}\t${ric:-0}"
+
+done >> symbiont_percent_table.tsv
