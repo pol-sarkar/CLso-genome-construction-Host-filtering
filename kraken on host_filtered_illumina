@@ -2,11 +2,10 @@ module load kraken2/2.1.3
 
 grep -iE "membrane|outer|transport|secretion|efflux|adhesion|lipoprotein|surface" reference_guided/results/A_S1/annotation/A_S1.gff
 
-sbatch kraken_I_S9.slurm (This works)
-
-
+nano 
 dos2unix kraken_K_S11.slurm
-sbatch kraken_H_S48.slurm
+sbatch kraken_I_S9.slurm (This works)
+dos2unix kraken_K_S11.slurm
 
 
 grep -i "Liberibacter" kraken2_illumina_hostfiltered/*.report > all_liberibacter_hits.txt
@@ -110,3 +109,11 @@ ric=$(grep -m1 -iP "\tG\t780\t.*Rickettsia$" "$f" | awk '{print $1}')
 echo -e "${sample}\t${lib:-0}\t${car:-0}\t${sod:-0}\t${ars:-0}\t${ser:-0}\t${wol:-0}\t${ric:-0}"
 
 done >> symbiont_percent_table.tsv
+
+=======================
+In R
+make heatmap
+library(pheatmap)
+
+x <- read.delim("symbiont_percent_table.tsv", row.names=1)
+pheatmap(x)
