@@ -1,0 +1,33 @@
+#Build a virulence / effector gene panel (reference database)
+module load prokka
+module unload ncbi-blast
+module load ncbi-blast/2.12.0+
+conda install -c conda-forge ncbi-datasets-cli
+##STEP 1 — Make BLAST database from CLso reference
+makeblastdb -in reference/CLso_ref/GCA_000183665.1_ASM18366v1_genomic.fna -dbtype nucl
+
+##TEP 2 — directly search virulence genes in the genome
+#make database
+makeblastdb -in reference/CLso_ref/GCA_000183665.1_ASM18366v1_genomic.fna -dbtype nucl
+
+##get real virulence gene sequences
+#create file
+nano clso_virulence_queries.fasta
+
+>ompA_Liberibacter_query
+ATGAAAA... (we will replace with real sequence)
+
+>groEL_Liberibacter_query
+ATGGCT...
+
+>gyrB_Liberibacter_query
+ATGACCA...
+
+>hpe33_Liberibacter_query
+ATGTTG...
+=========================================
+STEP 2 — find real ompA/groEL/gyrB in your genome
+
+blastn -db reference/CLso_ref/GCA_000183665.1_ASM18366v1_genomic.fna \
+-query reference_genes_candidate.fasta \
+-outfmt 6 -out virulence_hits.tsv
