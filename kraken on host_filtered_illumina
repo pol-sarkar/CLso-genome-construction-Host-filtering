@@ -2,11 +2,20 @@ module load kraken2/2.1.3
 
 grep -iE "membrane|outer|transport|secretion|efflux|adhesion|lipoprotein|surface" reference_guided/results/A_S1/annotation/A_S1.gff
 
-sbatch kraken_I_S9.slurm (This works)
+sbatch kraken_P_S16.slurm (This works)
 
 
-dos2unix kraken_B_S2.slurm
-sbatch kraken_A_S1.slurm
+dos2unix kraken_K_S11.slurm
+sbatch kraken_H_S48.slurm
 
 
-kraken_B_S2.slurm
+kraken_H_S8.slurm
+
+#COMPARE CLSO COUNTS 
+for f in kraken2_illumina_hostfiltered/*.report; do
+    s=$(basename "$f" .report)
+
+    grep -i "Candidatus Liberibacter solanacearum" "$f" | \
+    awk -v s="$s" '{print s"\t"$1"\t"$2"\t"$3}'
+
+done > CLso_counts.tsv
