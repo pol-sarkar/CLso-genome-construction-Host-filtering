@@ -1,0 +1,29 @@
+zcat NGS_fastq/A_S1_R1_001.fastq.gz | awk 'NR==2{print length($0)}'
+301
+(.) poulamis@skylark:~/shared/labprojects/WGS-Liberibacter-Pol$ zcat NGS_fastq/A_S1_R1_001.fastq.gz | echo $(( $(wc -l)/4 ))
+23060562
+(.) poulamis@skylark:~/shared/labprojects/WGS-Liberibacter-Pol$ (.) poulamis@skylark:~/shared/labprojects/WGS-Liberibacter-Pol$ zcat NGS_fastq/A_S1_R1_001.fastq.gz | awk 'NR==2{print length($0)}'
+bash: syntax error near unexpected token `poulamis@skylark:~/shared/labprojects/WGS-Liberibacter-Pol$'
+(.) poulamis@skylark:~/shared/labprojects/WGS-Liberibacter-Pol$ 
+(.) poulamis@skylark:~/shared/labprojects/WGS-Liberibacter-Pol$ 301
+bash: 301: command not found
+(.) poulamis@skylark:~/shared/labprojects/WGS-Liberibacter-Pol$ 
+(.) poulamis@skylark:~/shared/labprojects/WGS-Liberibacter-Pol$ (.) poulamis@skylark:~/shared/labprojects/WGS-Liberibacter-Pol$ zcat NGS_fastq/A_S1_R1_001.fastq.gz | echo $(( $(wc -l)/4 ))
+bash: syntax error near unexpected token `poulamis@skylark:~/shared/labprojects/WGS-Liberibacter-Pol$'
+(.) poulamis@skylark:~/shared/labprojects/WGS-Liberibacter-Pol$ 
+(.) poulamis@skylark:~/shared/labprojects/WGS-Liberibacter-Pol$ 23060562
+bash: 23060562: command not found
+(.) poulamis@skylark:~/shared/labprojects/WGS-Liberibacter-Pol$ 
+(.) poulamis@skylark:~/shared/labprojects/WGS-Liberibacter-Pol$ for f in NGS_fastq/*_R1_001.fastq.gz
+> 
+> do
+> 
+>     sample=$(basename $f _R1_001.fastq.gz)
+> 
+>     reads=$(zcat $f | awk 'END{print NR/4}')
+> 
+>     gb=$(echo "$reads*2*301/1000000000" | bc -l)
+> 
+>     printf "%s\t%s reads\t%.2f Gb\n" $sample $reads $gb
+> 
+> done
