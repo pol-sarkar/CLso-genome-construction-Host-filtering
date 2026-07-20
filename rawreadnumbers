@@ -1,6 +1,26 @@
+FOr qality string length
+zcat NGS_fastq/A_S1_R1_001.fastq.gz | awk 'NR==4{print length($0)}'
+
+zcat NGS_fastq/A_S1_R1_001.fastq.gz | awk 'NR==4{print length($0)}'
+OR
+zcat A_S1_R1_001.fastq.gz | awk 'NR==4{print length($0)}'
+zcat B_S2_R1_001.fastq.gz | awk 'NR==4{print length($0)}'
+
+One command to calculate reads
+for f in NGS_fastq/*_R1_001.fastq.gz
+do
+    sample=$(basename $f _R1_001.fastq.gz)
+    reads=$(zcat $f | awk 'END{print NR/4}')
+    gb=$(echo "$reads*300/1000000000" | bc -l)
+    echo -e "$sample\t$reads\t$gb Gb"
+done
+
+OR
+
 for f in *_R1_001.fastq.gz
 do
     sample=$(basename $f _R1_001.fastq.gz)
     reads=$(zcat $f | awk 'END{print NR/4}')
-    echo -e "${sample}\t${reads}"
-done > read_counts.tsv
+    gb=$(echo "$reads*2*301/1000000000" | bc -l)
+    printf "%s\t%s reads\t%.2f Gb\n" $sample $reads $gb
+done
