@@ -1,0 +1,137 @@
+# Try mamba first (faster), or conda
+conda install -c bioconda blast -y
+
+# 2. Download directly via FTP (FTP protocol handles the LATEST symlink directly)
+wget ftp://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/LATEST/ncbi-blast-*-x64-linux.tar.gz
+
+# 3. Extract the downloaded archive
+tar -xzf ncbi-blast-*-x64-linux.tar.gz
+
+# 4. Export binaries to PATH
+# 1. Add the exact BLAST+ bin folder to your PATH
+export PATH=$PATH:$(pwd)/ncbi-blast-2.17.0+/bin
+
+# 2. Verify that makeblastdb is now recognized
+makeblastdb -version
+
+Step 2: Build Database & Run tblastn
+# Build the nucleotide BLAST database
+makeblastdb -in all_consensus_genomes.fna -dbtype nucl -out all_consensus_db
+
+# Search candidate effector proteins against your consensus genomes
+tblastn -query ../effectors/effectors_query.fasta -db all_consensus_db -evalue 1e-5 -outfmt "6 qseqid sseqid pident length mismatch qstart qend sstart send evalue bitscore sseq" -out effector_tblastn_hits.tsv
+
+# Check the number of hits returned
+wc -l effector_tblastn_hits.tsv
+
+# View the first few hits
+head -n 10 effector_tblastn_hits.tsv
+
+
+Step 1: Filter Matrices & Regenerate Summary
+
+python3 -c '
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+# The 10 selected samples
+target_samples = ["CSU9A", "CSU14B", "EOR13a", "GEOR18H", "DFS3L", "DFS10M", "JTL7O", "JTL8P", "ELL2R", "ELL4S"]
+
+# Load full matrices
+pident_full = pd.read_csv("effector_pident_matrix.tsv", sep="\t", index_col=0)
+binary_full = pd.read_csv("effector_presence_absence.tsv", sep="\t", index_col=0)
+
+# Filter for columns that match target samples
+# (Handles potential prefix matching if headers contain full IDs)
+valid_cols = [col for col in pident_full.columns if any(s in col for s in target_samples)]
+
+pident_10 = pident_full[valid_cols]
+binary_10 = binary_full[valid_cols]
+
+# Save subset matrices
+pident_10.to_csv("effector_pident_10samples.tsv", sep="\t")
+binary_10.to_csv("effector_presence_absence_10samples.tsv", sep="\t")
+
+print(f"Subset complete! Matched {len(valid_cols)} columns: {list(valid_cols)}")
+
+# Clustered Heatmap for 10 samples
+g = sns.clustermap(pident_10, cmap="YlGnBu", figsize=(10, 8), linewidths=0.3, vmin=0, vmax=100)
+g.ax_suptitle.set_text("Effector % Identity (10 Selected Samples)")
+plt.savefig("effector_pident_10samples_heatmap.png", dpi=300, bbox_inches="tight")
+print("Saved 10-sample heatmap to: effector_pident_10samples_heatmap.png")
+'
+
+Step 2: Extract the FASTA Nucleotide Sequences
+python3 -c '
+import pandas as pd
+
+tblastn_file = "../effectors/effector_tblastn_hits.tsv"
+fasta_file = "../effectors/all_consensus_genomes.fna"
+out_fasta = "../effectors/extracted_effector_hits_10samples.fasta"
+
+# Load genome sequences into memory
+genomes = {}
+curr_header = None
+curr_seq = []
+
+with open(fasta_file) as f:
+    for line in f:
+        line = line.strip()
+        if line.startswith(">"):
+            if curr_header:
+                genomes[curr_header] = "".join(curr_seq)
+            curr_header = line[1:].split()[0]
+            curr_seq = []
+        else:
+            curr_seq.append(line)
+    if curr_header:
+        genomes[curr_header] = "".join(curr_seq)
+
+# Load tblastn hits
+cols = ["qseqid", "sseqid", "pident", "length", "mismatch", "qstart", "qend", "sstart", "send", "evalue", "bitscore", "sseq"]
+hits = pd.read_csv(tblastn_file, sep="\t", names=cols)
+
+# Restrict to top hit per qseqid and sample (A_S1 to J_S10)
+target_samples = ["A_S1", "B_S2", "C_S3", "D_S4", "E_S5", "F_S6", "G_S7", "H_S8", "I_S9", "J_S10"]
+hits["sample"] = hits["sseqid"].apply(lambda x: x.split("_NC_")[0] if "_NC_" in x else x.split("_")[0])
+hits_10 = hits[hits["sample"].isin(target_samples)]
+
+top_hits = hits_10.sort_values("bitscore", ascending=False).groupby(["qseqid", "sample"]).first().reset_index()
+
+# Helper for reverse complement
+comp = str.maketrans("ATCGatcgNn", "TAGCtagcNn")
+def rev_comp(seq):
+    return seq.translate(comp)[::-1]
+
+extracted_count = 0
+
+with open(out_fasta, "w") as out:
+    for _, row in top_hits.iterrows():
+        sseqid = row["sseqid"]
+        qseqid = row["qseqid"]
+        sample = row["sample"]
+        sstart = int(row["sstart"])
+        send = int(row["send"])
+        pident = row["pident"]
+        
+        if sseqid in genomes:
+            full_seq = genomes[sseqid]
+            start_idx = min(sstart, send) - 1
+            end_idx = max(sstart, send)
+            
+            nt_seq = full_seq[start_idx:end_idx]
+            
+            if sstart > send:
+                nt_seq = rev_comp(nt_seq)
+                strand = "-"
+            else:
+                strand = "+"
+                
+            header = f">{qseqid}|{sample}|{sseqid}:{min(sstart,send)}-{max(sstart,send)}({strand})|pident={pident}"
+            out.write(f"{header}\n{nt_seq}\n")
+            extracted_count += 1
+
+print(f"Done! Extracted {extracted_count} nucleotide sequences to:")
+print(f"  --> {out_fasta}")
+'
