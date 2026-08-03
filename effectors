@@ -135,3 +135,8 @@ with open(out_fasta, "w") as out:
 print(f"Done! Extracted {extracted_count} nucleotide sequences to:")
 print(f"  --> {out_fasta}")
 '
+=============================================================================
+Build a phylogenetic tree
+iqtree3 -s WP_045960311_aligned.fasta -m ModelFinder -bb 1000 -nt AUTO
+OR
+iqtree3 -s WP_045960311_aligned.fasta -m MFP -bb 1000 -nt AUTO
